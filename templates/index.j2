@@ -5,11 +5,17 @@
         {# Dropdown Name Selector #}
         Name:
         <select name="name">
-            {% for name in names %}<option name="name" value="{{ name }}" SELECTED>{{ name }}</option>{% endfor %}
+            {% for name, id in names.items() %}<option name="name" value="{{ name,id }}" SELECTED>{{ name }}</option>{% endfor %}
+        </select>
+        Location:
+        <select name="location">
+            {% for location, id in locations.items() %}
+                <option name="location" value="{{ location,id }}" SELECTED>{{ location }}</option>
+            {% endfor %}
         </select>
         {# Serial Number and SKU Input Field - add validation #}
         Serial Numbers:
-        <input type="text" name="serials">
+        <input type="text" name="serials" value="7JEN-AN96-M4YA">
         {# 2 buttons one for check in one for check out #}
         <input type="submit" name="action" value="Check In">
         <input type="submit" name="action" value="Check Out">
