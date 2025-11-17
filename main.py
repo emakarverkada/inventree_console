@@ -1,58 +1,62 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, flash, redirect, url_for
 from flask_caching import Cache
-from inventree_calls import *
 import regex as re
 import requests.exceptions
+from time import sleep
+
+from inventree_calls import *
+from forms import *
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = "secretkey"
 cache = Cache()
 
 
-# add validation
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
-    try:
-        customers = get_names()
-        locations = get_locations()
-        if customers == None:
-            raise Exception("No users were returned by API")
-        return render_template("index.j2", names=customers, locations=locations)
-    except requests.exceptions.ConnectionError:
-        return "Cannot connect to Inventree - check server and network"
+    form = InvTrackingForm()
+    # TODO Fix how data is given from api call so it can be reused and validated
+    form.name.choices = get_names()
+    form.location.choices = get_locations()
 
+    if form.validate_on_submit():
+        name_id = form.name.data
+        location_id = form.location.data
+        serials = str(form.serials.data)
+        serials = re.split(r"[;,\s]+", serials)
 
-# add validation for names and serials since that can be edited from FE and are part of post request
-@cache.cached(timeout=60)
-@app.route("/manage_device", methods=["POST"])
-def manage_device():
-    name = eval(request.form["name"])
-    name = {"name": name[0], "pk": int(name[1])}
-    location = eval(request.form["location"])
-    location = {"name": location[0], "pk": int(location[1])}
-    serials = request.form["serials"]
-    serials = re.split(r"[;,\s]+", serials)
+        stock = get_stock()
+        away_items = []
+        in_stock_items = []
+        for serial in serials:
+            result = next((t for t in stock if t["serial"] == serial), None)
+            if result == None:
+                raise Exception("Serial:", serial, "Not found in system")
+            else:
+                if result["customer"] == None:
+                    in_stock_items.append(result["pk"])
+                else:
+                    away_items.append(result["pk"])
 
-    stock = get_stock()
-    items_id = []
-    for serial in serials:
-        if serial not in stock:
-            raise Exception("Serial:", serial, "Not found in system")
-            # add rendering for it later
-        else:
-            print("Found serial", serial)
-            items_id.append(int(stock[serial]))
-            print(items_id)
+        if form.check_in.data:
+            print(away_items, location_id)
+            if away_items:
+                return_stock(away_items, location_id)
+                flash("You successfully returned items to the lab")
+                return redirect(url_for("index"))
+            else:
+                flash("No items to return")
+                return redirect(url_for("index"))
 
-    if request.form.get("action") == "Check In":
-        print(name, serials)
-        return_stock(items_id, location["pk"])
-        return render_template("success.j2")
-    elif request.form.get("action") == "Check Out":
-        print(name, serials)
-        assign_stock(items_id, name["pk"])
-        return render_template("success.j2")
-    else:
-        raise Exception("Unknown Action")
+        elif form.check_out.data:
+            if in_stock_items:
+                assign_stock(in_stock_items, name_id)
+                flash("You successfully checked out items out of the lab")
+                return redirect(url_for("index"))
+            else:
+                flash("No items to check out")
+                return redirect(url_for("index"))
+    return render_template("index.j2", form=form)
 
 
 # 7JEN-AN96-M4YA

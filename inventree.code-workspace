@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../inventree"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"[html][django-html][handlebars][hbs][mustache][jinja][jinja-html][nj][njk][nunjucks][twig]": {
+			"editor.defaultFormatter": "monosans.djlint"
+		},
+		"files.associations": { // so that all html files are not recognized as django-html
+			"*.j2": "jinja-html"
+		},
+		"chat.agent.enabled": false,
+		"chat.disableAIFeatures": true
+	}
+}

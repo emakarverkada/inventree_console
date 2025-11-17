@@ -1,23 +1,18 @@
 {% extends "base.j2" %}
 {% block main_content %}
     <h1>Device Central</h1>
-    <form action="{{ url_for('manage_device') }}" method="post">
-        {# Dropdown Name Selector #}
-        Name:
-        <select name="name">
-            {% for name, id in names.items() %}<option name="name" value="{{ name,id }}" SELECTED>{{ name }}</option>{% endfor %}
-        </select>
-        Location:
-        <select name="location">
-            {% for location, id in locations.items() %}
-                <option name="location" value="{{ location,id }}" SELECTED>{{ location }}</option>
-            {% endfor %}
-        </select>
-        {# Serial Number and SKU Input Field - add validation #}
-        Serial Numbers:
-        <input type="text" name="serials" value="7JEN-AN96-M4YA">
-        {# 2 buttons one for check in one for check out #}
-        <input type="submit" name="action" value="Check In">
-        <input type="submit" name="action" value="Check Out">
+    <form action="{{ url_for('index') }}" method="post">
+        {{ form.csrf_token }}
+        <p>{{ form.name.label }} {{ form.name() }}</p>
+        <p>{{ form.location.label }} {{ form.location() }}</p>
+        <p>{{ form.serials.label }} {{ form.serials() }}</p>
+        <p>{{ form.check_in() }} {{ form.check_out() }}</p>
     </form>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <p class=flashes>
+                {% for message in messages %}{{ message }}{% endfor %}
+            </p>
+        {% endif %}
+    {% endwith %}
 {% endblock main_content %}
