@@ -70,6 +70,7 @@ def index():
         elif form.check_out.data:
             items_to_checkout = []
             messages = []
+            tse_message = None
 
             # If there are items checked out to wrong customer, return them to stock first
             if wrong_customer_items:
@@ -78,7 +79,7 @@ def index():
                     return_stock(wrong_customer_items, location_id)
                     # After returning, add them to the checkout list
                     items_to_checkout.extend(wrong_customer_items)
-                    messages.append(f"Returned {len(wrong_customer_items)} item(s) from another TSE to lab")
+                    tse_message = f"Returned {len(wrong_customer_items)} item(s) from another TSE to lab"
                 except Exception as e:
                     flash(f"Error returning items to stock: {str(e)}", "error")
                     return redirect(url_for("index"))
@@ -93,8 +94,15 @@ def index():
             if items_to_checkout:
                 try:
                     assign_stock(items_to_checkout, name_id)
-                    if messages:
-                        flash(f"You successfully checked out {len(items_to_checkout)} item(s). {' '.join(messages)}")
+                    # Build message with TSE message first if it exists
+                    main_message = f"You successfully checked out {len(items_to_checkout)} item(s)"
+                    if tse_message:
+                        if messages:
+                            flash(f"{tse_message}. {main_message}. {' '.join(messages)}")
+                        else:
+                            flash(f"{tse_message}. {main_message}")
+                    elif messages:
+                        flash(f"{main_message}. {' '.join(messages)}")
                     else:
                         flash("You successfully checked out items out of the lab")
                     return redirect(url_for("index"))
