@@ -10,7 +10,7 @@
             <div class="serial-field">
                 {{ serial_field.label() }}
                 <div class="serial-input-wrapper">
-                    {{ serial_field(placeholder="****-****-****", pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}") }}
+                    {{ serial_field(placeholder="Input serial here", pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}", title="Please input correct serial number") }}
                     <button type="button" class="remove-serial">Remove</button>
                 </div>
                 {% if serial_field.errors %}
@@ -21,6 +21,11 @@
             </div>
             {% endfor %}
         </div>
+        {% if form.serials.errors %}
+            <span class="field-error">
+                {% for error in form.serials.errors %}{{ error }}{% endfor %}
+            </span>
+        {% endif %}
         <button type="button" id="add-serial-btn" class="add-serial-btn">Add Another Serial</button>
         <div class="button-group">
             {{ form.check_in() }}
@@ -39,17 +44,51 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateFieldStates();
             reindexFields();
+            setupEnterKeyHandler();
         });
+        
+        // Handle Enter key press on serial inputs to trigger "Add Another Serial" instead of form submission
+        function setupEnterKeyHandler() {
+            const container = document.getElementById('serials-container');
+            const addButton = document.getElementById('add-serial-btn');
+            
+            container.addEventListener('keydown', function(e) {
+                // Check if Enter was pressed on an input field
+                if (e.target.tagName === 'INPUT' && e.target.type === 'text' && e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission
+                    e.stopPropagation();
+                    // Trigger the "Add Another Serial" button click
+                    addButton.click();
+                }
+            });
+        }
         
         document.getElementById('add-serial-btn').addEventListener('click', function() {
             const container = document.getElementById('serials-container');
             const serialWrappers = container.querySelectorAll('.serial-input-wrapper');
             const nextIndex = serialWrappers.length;
             
-            // Make the last field readonly before adding a new one
+            // Require the last (active) field to be filled and valid before adding a new one
             if (serialWrappers.length > 0) {
                 const lastInput = serialWrappers[serialWrappers.length - 1].querySelector('input');
                 if (lastInput) {
+                    // Check if field is empty
+                    if (!lastInput.value.trim()) {
+                        // Set a custom validation message for empty field
+                        lastInput.setCustomValidity('Please enter a serial number before adding another');
+                        lastInput.reportValidity();
+                        lastInput.setCustomValidity(''); // Reset after showing
+                        return; // Don't add a new field if current one is empty
+                    }
+                    
+                    // Check if the field has valid format
+                    if (!lastInput.checkValidity()) {
+                        // Trigger the browser's native validation popup
+                        lastInput.reportValidity();
+                        return; // Don't add a new field if current one has invalid format
+                    }
+                    
+                    // If valid and has a value, make it readonly before adding a new one
                     lastInput.readOnly = true;
                 }
             }
@@ -60,7 +99,7 @@
             newSerial.innerHTML = `
                 <label for="serials-${nextIndex}">Serial Number</label>
                 <div class="serial-input-wrapper">
-                    <input type="text" name="serials-${nextIndex}" id="serials-${nextIndex}" placeholder="****-****-****" pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}">
+                    <input type="text" name="serials-${nextIndex}" id="serials-${nextIndex}" placeholder="Input serial here" pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}" title="Please input correct serial number">
                     <button type="button" class="remove-serial">Remove</button>
                 </div>
             `;
@@ -68,6 +107,12 @@
             
             // Update readonly states and remove buttons
             updateFieldStates();
+            
+            // Focus the newly created input field
+            const newInput = document.getElementById(`serials-${nextIndex}`);
+            if (newInput) {
+                newInput.focus();
+            }
         });
         
         // Handle remove button clicks using event delegation
