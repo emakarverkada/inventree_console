@@ -1,18 +1,153 @@
 {% extends "base.j2" %}
 {% block main_content %}
     <h1>Device Central</h1>
-    <form action="{{ url_for('index') }}" method="post">
+    <form action="{{ url_for('index') }}" method="post" id="tracking-form">
         {{ form.csrf_token }}
         <p>{{ form.name.label }} {{ form.name() }}</p>
         <p>{{ form.location.label }} {{ form.location() }}</p>
-        <p>{{ form.serials.label }} {{ form.serials() }}</p>
-        <p>{{ form.check_in() }} {{ form.check_out() }}</p>
+        <div id="serials-container">
+            {% for serial_field in form.serials %}
+            <div class="serial-field">
+                {{ serial_field.label() }}
+                <div class="serial-input-wrapper">
+                    {{ serial_field(placeholder="****-****-****", pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}") }}
+                    <button type="button" class="remove-serial">Remove</button>
+                </div>
+                {% if serial_field.errors %}
+                    <span class="field-error">
+                        {% for error in serial_field.errors %}{{ error }}{% endfor %}
+                    </span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-serial-btn" class="add-serial-btn">Add Another Serial</button>
+        <div class="button-group">
+            {{ form.check_in() }}
+            {{ form.check_out() }}
+        </div>
     </form>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
-            <p class=flashes>
+            <p class="flashes">
                 {% for message in messages %}{{ message }}{% endfor %}
             </p>
         {% endif %}
     {% endwith %}
+    <script>
+        // Initialize field states on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateFieldStates();
+            reindexFields();
+        });
+        
+        document.getElementById('add-serial-btn').addEventListener('click', function() {
+            const container = document.getElementById('serials-container');
+            const serialWrappers = container.querySelectorAll('.serial-input-wrapper');
+            const nextIndex = serialWrappers.length;
+            
+            // Make the last field readonly before adding a new one
+            if (serialWrappers.length > 0) {
+                const lastInput = serialWrappers[serialWrappers.length - 1].querySelector('input');
+                if (lastInput) {
+                    lastInput.readOnly = true;
+                }
+            }
+            
+            // Create new field with WTForms FieldList naming convention (serials-{index})
+            const newSerial = document.createElement('div');
+            newSerial.className = 'serial-field';
+            newSerial.innerHTML = `
+                <label for="serials-${nextIndex}">Serial Number</label>
+                <div class="serial-input-wrapper">
+                    <input type="text" name="serials-${nextIndex}" id="serials-${nextIndex}" placeholder="****-****-****" pattern="[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}-[A-Za-z0-9]{1,4}">
+                    <button type="button" class="remove-serial">Remove</button>
+                </div>
+            `;
+            container.appendChild(newSerial);
+            
+            // Update readonly states and remove buttons
+            updateFieldStates();
+        });
+        
+        // Handle remove button clicks using event delegation
+        const container = document.getElementById('serials-container');
+        container.addEventListener('click', function(e) {
+            // Check if the clicked element or its parent is a remove button
+            const button = e.target.closest('.remove-serial');
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Find the parent serial-field element that contains this button
+                // Structure: button -> div.serial-input-wrapper -> div.serial-field
+                const wrapper = button.closest('.serial-input-wrapper');
+                const fieldElement = wrapper ? wrapper.closest('.serial-field') : null;
+                
+                if (fieldElement) {
+                    // Don't allow removing if it's the only field
+                    const allWrappers = container.querySelectorAll('.serial-input-wrapper');
+                    if (allWrappers.length <= 1) {
+                        return; // Keep at least one field
+                    }
+                    
+                    // Remove the field
+                    fieldElement.remove();
+                    
+                    // Re-index all remaining fields to maintain sequential indices
+                    reindexFields();
+                    
+                    // Update readonly states and remove buttons
+                    updateFieldStates();
+                }
+            }
+        });
+        
+        function reindexFields() {
+            // Re-index all fields to maintain sequential WTForms FieldList indices
+            const container = document.getElementById('serials-container');
+            const wrappers = container.querySelectorAll('.serial-input-wrapper');
+            
+            wrappers.forEach((wrapper, index) => {
+                const input = wrapper.querySelector('input');
+                // Find the label in the parent serial-field element
+                const fieldElement = wrapper.closest('.serial-field');
+                const label = fieldElement ? fieldElement.querySelector('label') : null;
+                
+                if (input) {
+                    input.name = `serials-${index}`;
+                    input.id = `serials-${index}`;
+                }
+                
+                if (label) {
+                    label.setAttribute('for', `serials-${index}`);
+                }
+            });
+        }
+        
+        function updateFieldStates() {
+            const inputs = document.querySelectorAll('#serials-container input[type="text"]');
+            const removeButtons = document.querySelectorAll('.remove-serial');
+            const lastIndex = inputs.length - 1;
+            
+            // Make all fields readonly except the last one
+            inputs.forEach((input, index) => {
+                if (index === lastIndex) {
+                    input.readOnly = false;
+                } else {
+                    input.readOnly = true;
+                }
+            });
+            
+            // Show/hide remove buttons - hide the button on the last (active) field
+            removeButtons.forEach((btn, index) => {
+                // Hide remove button if it's on the last field (the active one)
+                if (index === lastIndex) {
+                    btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'inline-block';
+                }
+            });
+        }
+    </script>
 {% endblock main_content %}

@@ -39,7 +39,6 @@ def get_stock():
     return [{key: i.get(key) for key in keys} for i in data]
 
 
-# TODO add error 400 check for when a device is already returned or checked out
 def assign_stock(items_id: list, name_id: int):
     headers = {"Authorization": token}
     url = base_url + "/api/stock/assign/"
@@ -55,7 +54,6 @@ def assign_stock(items_id: list, name_id: int):
     return None
 
 
-# TODO add error 400 check for when a device is already returned or checked out
 def return_stock(items_id: list, location_id: int):
     headers = {"Authorization": token}
     url = base_url + "/api/stock/return/"
