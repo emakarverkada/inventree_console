@@ -1,11 +1,36 @@
 import os
 import requests
+from requests.auth import HTTPBasicAuth
 
-token = os.getenv("INVENTREE_TOKEN", "token inv-b0d001f86ec7dca3bb8b520965219503bba7baf0-20251103")
+# token = os.getenv("INVENTREE_TOKEN", "")
 base_url = os.getenv("INVENTREE_BASE_URL", "http://inventree.localhost")
+inv_user = os.getenv("INVENTREE_USER", "")
+inv_pass = os.getenv("INVENTREE_PASS", "")
 
 
-def inv_get_call(path: str, key_names: list):
+class authenticate:
+    auth = None
+
+    @classmethod
+    def set_auth(cls, inv_user, inv_pass):
+        cls.auth = HTTPBasicAuth(inv_user, inv_pass)
+
+    def __init__(self, func=None):
+        if func is not None:
+            self.func = func
+        else:
+            print("no function")
+
+    def __call__(self, *arg, **kwarg):
+        """
+        add authentication to function func
+        """
+        ret = self.func(*arg, **kwarg, auth=self.auth)
+        return ret
+
+
+@authenticate
+def inv_get_call(path: str, key_names: list, auth):
     """
     Calls Inventree API and returns JSON data.
 
@@ -16,9 +41,8 @@ def inv_get_call(path: str, key_names: list):
     Returns:
         JSON response data from the API
     """
-    headers = {"Authorization": token}
     url = base_url + path
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, auth=auth)
     response.raise_for_status()
     return response.json()
 
@@ -41,7 +65,8 @@ def get_stock():
     return [{key: i.get(key) for key in keys} for i in data]
 
 
-def assign_stock(item_ids: list, name_id: int):
+@authenticate
+def assign_stock(item_ids: list, name_id: int, auth):
     """
     Assign stock items to a customer.
 
@@ -53,10 +78,9 @@ def assign_stock(item_ids: list, name_id: int):
         ValueError: If items are not in stock
         requests.HTTPError: For other HTTP errors
     """
-    headers = {"Authorization": token}
     url = base_url + "/api/stock/assign/"
     body = {"items": [{"item": item_id} for item_id in item_ids], "customer": name_id}
-    response = requests.post(url, headers=headers, json=body)
+    response = requests.post(url, auth=auth, json=body)
     if response.status_code == 400:
         try:
             error_data = response.json()
@@ -67,7 +91,8 @@ def assign_stock(item_ids: list, name_id: int):
     response.raise_for_status()
 
 
-def return_stock(item_ids: list, location_id: int):
+@authenticate
+def return_stock(item_ids: list, location_id: int, auth):
     """
     Return stock items to a location.
 
@@ -79,14 +104,13 @@ def return_stock(item_ids: list, location_id: int):
         ValueError: If items are already in stock
         requests.HTTPError: For other HTTP errors
     """
-    headers = {"Authorization": token}
     url = base_url + "/api/stock/return/"
     body = {
         "items": [{"pk": item_id, "quantity": "1"} for item_id in item_ids],
         "location": location_id,
         "merge": True,
     }
-    response = requests.post(url, headers=headers, json=body)
+    response = requests.post(url, auth=auth, json=body)
     if response.status_code == 400:
         try:
             response_data = response.json()

@@ -1,17 +1,20 @@
 import os
 from flask import Flask, render_template, flash, redirect, url_for, request
+from dotenv import load_dotenv, dotenv_values
 
-from inventree_calls import (
-    get_names,
-    get_locations,
-    get_stock,
-    assign_stock,
-    return_stock,
-)
+from inventree_calls import get_names, get_locations, get_stock, assign_stock, return_stock, authenticate
+
 from forms import InvTrackingForm
 
+load_dotenv()
+
+base_url = os.getenv("INVENTREE_SITE_URL", "http://inventree.localhost")
+inv_user = os.getenv("INVENTREE_ADMIN_USER")
+inv_pass = os.getenv("INVENTREE_ADMIN_PASSWORD")
+
+authenticate.set_auth(inv_user, inv_pass)
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "")
 
 
 @app.route("/", methods=["GET", "POST"])
