@@ -1,11 +1,7 @@
-import os
 import requests
 from requests.auth import HTTPBasicAuth
 
-# token = os.getenv("INVENTREE_TOKEN", "")
-base_url = os.getenv("INVENTREE_BASE_URL", "http://inventree.localhost")
-inv_user = os.getenv("INVENTREE_USER", "")
-inv_pass = os.getenv("INVENTREE_PASS", "")
+from config import inventree_url
 
 
 class authenticate:
@@ -41,7 +37,7 @@ def inv_get_call(path: str, key_names: list, auth):
     Returns:
         JSON response data from the API
     """
-    url = base_url + path
+    url = inventree_url + path
     response = requests.get(url, auth=auth)
     response.raise_for_status()
     return response.json()
@@ -78,7 +74,7 @@ def assign_stock(item_ids: list, name_id: int, auth):
         ValueError: If items are not in stock
         requests.HTTPError: For other HTTP errors
     """
-    url = base_url + "/api/stock/assign/"
+    url = inventree_url + "/api/stock/assign/"
     body = {"items": [{"item": item_id} for item_id in item_ids], "customer": name_id}
     response = requests.post(url, auth=auth, json=body)
     if response.status_code == 400:
@@ -104,7 +100,7 @@ def return_stock(item_ids: list, location_id: int, auth):
         ValueError: If items are already in stock
         requests.HTTPError: For other HTTP errors
     """
-    url = base_url + "/api/stock/return/"
+    url = inventree_url + "/api/stock/return/"
     body = {
         "items": [{"pk": item_id, "quantity": "1"} for item_id in item_ids],
         "location": location_id,

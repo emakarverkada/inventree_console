@@ -3,3 +3,4 @@ WTForms==3.2.1
 Flask-WTF==1.2.2
 requests==2.32.5
 dotenv==0.9.9
+waitress==3.0.2
