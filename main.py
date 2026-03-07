@@ -1,20 +1,42 @@
 import os
+import logging
 import requests
+
 from flask import Flask, render_template, flash, redirect, url_for, request
 from dotenv import load_dotenv, dotenv_values
+from apscheduler.schedulers.background import BackgroundScheduler
 
-
-from inventree_calls import get_names, get_locations, get_stock, assign_stock, return_stock, authenticate
+from inventree_calls import get_locations, get_stock, get_customers, assign_stock, return_stock, parse_json, basic_auth
 from forms import InvTrackingForm
-from config import inv_user, inv_pass
+from config import INV_USER, INV_PASS, DEBUG, OKTA_API_KEY, CONSOLE_SECRET_KEY
+from tasks import sync_okta_users, okta_auth
 
 load_dotenv()
 
 debug = os.getenv("INVENTREE_DEBUG") == "True"
-authenticate.set_auth(inv_user, inv_pass)
+basic_auth.set_auth(INV_USER, INV_PASS)
+
+sched = BackgroundScheduler(daemon=True)
+sched.add_job(sync_okta_users, "interval", minutes=60)
+sched.start()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("CONSOLE_SECRET_KEY", "")
+app.config["SECRET_KEY"] = CONSOLE_SECRET_KEY
+
+
+def format_choices(data: list) -> list:
+    """
+    Gets choises out of PL and value
+
+    Args:
+        list returned by
+
+    Returns:
+        List of tuples
+    """
+    keys = ["pk", "name"]
+    data = parse_json(data, keys)
+    return [tuple(d[key] for key in keys) for d in data]
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -22,8 +44,8 @@ def index():
     try:
         # Only bind form data on POST requests, create fresh form on GET
         form = InvTrackingForm(request.form if request.method == "POST" else None)
-        form.name.choices = get_names()
-        form.location.choices = get_locations()
+        form.name.choices = format_choices(get_customers())
+        form.location.choices = format_choices(get_locations())
 
         if form.validate_on_submit():
             name_id = form.name.data
@@ -122,10 +144,15 @@ def index():
                     return redirect(url_for("index"))
         return render_template("index.j2", form=form)
     except requests.exceptions.ConnectionError as e:
+        logging.error("Error at %s", "division", exc_info=e)
         return "Console cannot connect to inventree backend - contact administrator"
 
 
 if __name__ == "__main__":
-    from waitress import serve
 
-    serve(app, host="0.0.0.0", port=8080)
+    if DEBUG:
+        app.run(debug=True)
+    else:
+        from waitress import serve
+
+        serve(app, host="0.0.0.0", port=8080)

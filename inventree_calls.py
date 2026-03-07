@@ -1,10 +1,13 @@
 import requests
 from requests.auth import HTTPBasicAuth
 
-from config import inventree_url
+from config import BASE_URL, DEBUG
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 
-class authenticate:
+class basic_auth:
     auth = None
 
     @classmethod
@@ -19,50 +22,56 @@ class authenticate:
 
     def __call__(self, *arg, **kwarg):
         """
-        add authentication to function func
+        sets authentication to decorated function
         """
         ret = self.func(*arg, **kwarg, auth=self.auth)
         return ret
 
 
-@authenticate
-def inv_get_call(path: str, key_names: list, auth):
+@basic_auth
+def make_inv_request(method: str, path: str, **kwargs) -> requests.Response:
     """
-    Calls Inventree API and returns JSON data.
+    Helper function for calling APIs
 
     Args:
-        path: API endpoint path
-        key_names: List of keys to extract (currently unused but kept for compatibility)
+        method: method used for calling the API
+        path: API path on top of base URL
 
     Returns:
-        JSON response data from the API
+        Requests Response
     """
-    url = inventree_url + path
-    response = requests.get(url, auth=auth)
-    response.raise_for_status()
-    return response.json()
-
-
-def get_names():
-    keys = ["pk", "name"]
-    data = inv_get_call("/api/company/", keys)
-    return [(i["pk"], i["name"]) for i in data]
+    url = BASE_URL + "/api" + path
+    verify = not DEBUG  # turning off ssl verification when running in debug mode
+    response = requests.request(method=method, url=url, verify=verify, **kwargs)
+    return response
 
 
 def get_locations():
     keys = ["pk", "name"]
-    data = inv_get_call("/api/stock/location/", keys)
-    return [(i["pk"], i["name"]) for i in data]
+    response = make_inv_request(method="GET", path="/stock/location/")
+    return parse_json(data=response.json(), keys=keys)
 
 
 def get_stock():
     keys = ["pk", "serial", "customer", "location"]
-    data = inv_get_call("/api/stock/", keys)
+    response = make_inv_request(method="GET", path="/stock/")
+    return parse_json(data=response.json(), keys=keys)
+
+
+def get_customers():
+    keys = ["pk", "name", "email"]
+    response = make_inv_request(method="GET", path="/company/")
+    return parse_json(data=response.json(), keys=keys)
+
+
+def parse_json(data: dict, keys):
+    """
+    Returns list of dicts with only selected keys
+    """
     return [{key: i.get(key) for key in keys} for i in data]
 
 
-@authenticate
-def assign_stock(item_ids: list, name_id: int, auth):
+def assign_stock(item_ids: list, name_id: int):
     """
     Assign stock items to a customer.
 
@@ -74,9 +83,8 @@ def assign_stock(item_ids: list, name_id: int, auth):
         ValueError: If items are not in stock
         requests.HTTPError: For other HTTP errors
     """
-    url = inventree_url + "/api/stock/assign/"
-    body = {"items": [{"item": item_id} for item_id in item_ids], "customer": name_id}
-    response = requests.post(url, auth=auth, json=body)
+    json = {"items": [{"item": item_id} for item_id in item_ids], "customer": name_id}
+    response = make_inv_request(method="POST", path="/stock/assign/", json=json)
     if response.status_code == 400:
         try:
             error_data = response.json()
@@ -87,8 +95,7 @@ def assign_stock(item_ids: list, name_id: int, auth):
     response.raise_for_status()
 
 
-@authenticate
-def return_stock(item_ids: list, location_id: int, auth):
+def return_stock(item_ids: list, location_id: int):
     """
     Return stock items to a location.
 
@@ -100,13 +107,12 @@ def return_stock(item_ids: list, location_id: int, auth):
         ValueError: If items are already in stock
         requests.HTTPError: For other HTTP errors
     """
-    url = inventree_url + "/api/stock/return/"
-    body = {
+    json = {
         "items": [{"pk": item_id, "quantity": "1"} for item_id in item_ids],
         "location": location_id,
         "merge": True,
     }
-    response = requests.post(url, auth=auth, json=body)
+    response = make_inv_request(method="POST", path="/stock/return/", json=json)
     if response.status_code == 400:
         try:
             response_data = response.json()
@@ -115,4 +121,29 @@ def return_stock(item_ids: list, location_id: int, auth):
                 raise ValueError("Stock item is already in stock")
         except (KeyError, IndexError):
             pass
+    response.raise_for_status()
+
+
+def add_customer(name: str, email: str):
+    """
+    Adds customers to a location.
+
+    Args:
+        item_ids: List of item primary keys to return
+        location_id: Location primary key
+
+    Raises:
+        ValueError: If items are already in stock
+        requests.HTTPError: For other HTTP errors
+    """
+    json = {
+        "name": name,
+        "email": email,
+        "currency": "USD",
+        "active": True,
+        "is_customer": True,
+        "is_manufacturer": False,
+        "is_supplier": False,
+    }
+    response = make_inv_request(method="POST", path="/company/", json=json)
     response.raise_for_status()
