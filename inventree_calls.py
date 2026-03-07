@@ -126,15 +126,14 @@ def return_stock(item_ids: list, location_id: int):
 
 def add_customer(name: str, email: str):
     """
-    Adds customers to a location.
+    Add a customer (company) in InvenTree.
 
     Args:
-        item_ids: List of item primary keys to return
-        location_id: Location primary key
+        name: Customer display name.
+        email: Customer email address.
 
     Raises:
-        ValueError: If items are already in stock
-        requests.HTTPError: For other HTTP errors
+        requests.HTTPError: On API failure.
     """
     json = {
         "name": name,

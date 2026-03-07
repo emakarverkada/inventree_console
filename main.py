@@ -26,17 +26,17 @@ app.config["SECRET_KEY"] = CONSOLE_SECRET_KEY
 
 def format_choices(data: list) -> list:
     """
-    Gets choises out of PL and value
+    Build (pk, name) choice tuples for a select field from API data.
 
     Args:
-        list returned by
+        data: List of dicts from an InvenTree API (e.g. customers, locations).
 
     Returns:
-        List of tuples
+        List of (id, name) tuples for Flask-WTF choices.
     """
     keys = ["pk", "name"]
-    data = parse_json(data, keys)
-    return [tuple(d[key] for key in keys) for d in data]
+    parsed = parse_json(data, keys)
+    return [tuple(d[key] for key in keys) for d in parsed]
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -144,7 +144,7 @@ def index():
                     return redirect(url_for("index"))
         return render_template("index.j2", form=form)
     except requests.exceptions.ConnectionError as e:
-        logging.error("Error at %s", "division", exc_info=e)
+        logging.error("Connection error in index: %s", e, exc_info=True)
         return "Console cannot connect to inventree backend - contact administrator"
 
 

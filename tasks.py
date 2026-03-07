@@ -6,23 +6,19 @@ from inventree_calls import get_customers, add_customer, parse_json
 
 
 class SSWS_Auth(requests.auth.AuthBase):
-    """Attaches HTTP Basic Authentication to the given Request object."""
+    """Attaches Okta SSWS API token to the request Authorization header."""
 
     def __init__(self, token):
         self.token = token
 
     def __eq__(self, other):
-        return all(
-            [
-                self.token == getattr(other, "token", None),
-            ]
-        )
+        return isinstance(other, SSWS_Auth) and self.token == other.token
 
     def __ne__(self, other):
-        return not self == other
+        return not (self == other)
 
     def __call__(self, r):
-        r.headers["Authorization"] = "SSWS {self.token}"
+        r.headers["Authorization"] = f"SSWS {self.token}"
         return r
 
 
@@ -64,35 +60,46 @@ def make_okta_request(method: str, path: str, **kwargs) -> requests.Response:
     return response
 
 
+VERKADA_EMAIL_PATTERN = re.compile(r"\w+\.\w+@verkada.com")
+
+
 def get_okta_users():
     """
-    Returns list of dicts with displayname and email
+    Fetch users from Okta and return those with @verkada.com emails.
+
+    Returns:
+        List of dicts with "name" (first + last) and "email".
     """
-    path = "/v1/users"
-    url = OKTA_URL + "/api" + path
-    users = []
-    headers = {"Authorization": "SSWS " + OKTA_API_KEY}
-    response = requests.get(url=url, headers=headers)
-    # response = make_okta_request(method="GET", path=path)
+    response = make_okta_request(method="GET", path="/v1/users")
     response.raise_for_status()
-    data = response.json()
-    p = re.compile(r"\w+\.\w+@verkada.com")
-    for i in data:
-        if p.match(i["profile"]["email"]):
-            users.append({"name": f"{i["profile"]["firstName"]} {i["profile"]["lastName"]}", "email": i["profile"]["email"]})
+    okta_data = response.json()
+    users = []
+
+    for user in okta_data:
+        profile = user["profile"]
+        email = profile["email"]
+        if VERKADA_EMAIL_PATTERN.match(email):
+            full_name = f"{profile['firstName']} {profile['lastName']}"
+            users.append({"name": full_name, "email": email})
 
     return users
 
 
-convert_to_set = lambda l: set(frozenset(d.items()) for d in l)
+def _dict_list_to_set(dict_list):
+    """Convert a list of dicts to a set of frozensets for comparison."""
+    return set(frozenset(d.items()) for d in dict_list)
 
 
 def sync_okta_users():
-    current_users = parse_json(get_customers(), ["name", "email"])
+    """Sync Okta users into InvenTree: add any Okta users not yet in customers."""
+    current_customers = parse_json(get_customers(), ["name", "email"])
     okta_users = get_okta_users()
 
-    user_diff = convert_to_set(okta_users).difference(convert_to_set(current_users))
-    for user in user_diff:
-        user = dict(user)
+    current_set = _dict_list_to_set(current_customers)
+    okta_set = _dict_list_to_set(okta_users)
+    new_users = okta_set - current_set
+
+    for user_frozen in new_users:
+        user = dict(user_frozen)
         add_customer(user["name"], user["email"])
         print("Added user", user)
