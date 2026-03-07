@@ -13,6 +13,13 @@ from tasks import sync_okta_users, okta_auth
 
 load_dotenv()
 
+# Configure logging so API and task loggers (inventree_calls, tasks) emit output
+logging.basicConfig(
+    level=logging.DEBUG if DEBUG else logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 debug = os.getenv("INVENTREE_DEBUG") == "True"
 basic_auth.set_auth(INV_USER, INV_PASS)
 

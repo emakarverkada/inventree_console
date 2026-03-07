@@ -1,10 +1,12 @@
+import logging
+import time
+
 import requests
 from requests.auth import HTTPBasicAuth
 
 from config import BASE_URL, DEBUG
-import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class basic_auth:
@@ -31,19 +33,28 @@ class basic_auth:
 @basic_auth
 def make_inv_request(method: str, path: str, **kwargs) -> requests.Response:
     """
-    Helper function for calling APIs
+    Helper function for calling InvenTree API.
 
     Args:
-        method: method used for calling the API
-        path: API path on top of base URL
+        method: HTTP method (GET, POST, etc.)
+        path: API path (e.g. /stock/, /company/).
 
     Returns:
-        Requests Response
+        requests.Response
     """
     url = BASE_URL + "/api" + path
     verify = not DEBUG  # turning off ssl verification when running in debug mode
-    response = requests.request(method=method, url=url, verify=verify, **kwargs)
-    return response
+    logger.info("InvenTree API request: %s %s", method, path)
+    start = time.perf_counter()
+    try:
+        response = requests.request(method=method, url=url, verify=verify, **kwargs)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("InvenTree API response: %s %s -> %d (%.0f ms)", method, path, response.status_code, elapsed_ms)
+        return response
+    except requests.RequestException as e:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.exception("InvenTree API error: %s %s failed after %.0f ms: %s", method, path, elapsed_ms, e)
+        raise
 
 
 def get_locations():

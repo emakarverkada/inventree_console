@@ -1,8 +1,13 @@
-import requests
+import logging
 import re
+import time
+
+import requests
 
 from config import OKTA_URL, OKTA_API_KEY
 from inventree_calls import get_customers, add_customer, parse_json
+
+logger = logging.getLogger(__name__)
 
 
 class SSWS_Auth(requests.auth.AuthBase):
@@ -46,18 +51,27 @@ class okta_auth:
 @okta_auth
 def make_okta_request(method: str, path: str, **kwargs) -> requests.Response:
     """
-    Helper function for calling APIs
+    Helper function for calling Okta API.
 
     Args:
-        method: method used for calling the API
-        path: API path on top of base URL
+        method: HTTP method (GET, POST, etc.)
+        path: API path (e.g. /v1/users).
 
     Returns:
-        Requests Response
+        requests.Response
     """
     url = OKTA_URL + "/api" + path
-    response = requests.request(method=method, url=url, **kwargs)
-    return response
+    logger.info("Okta API request: %s %s", method, path)
+    start = time.perf_counter()
+    try:
+        response = requests.request(method=method, url=url, **kwargs)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("Okta API response: %s %s -> %d (%.0f ms)", method, path, response.status_code, elapsed_ms)
+        return response
+    except requests.RequestException as e:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.exception("Okta API error: %s %s failed after %.0f ms: %s", method, path, elapsed_ms, e)
+        raise
 
 
 VERKADA_EMAIL_PATTERN = re.compile(r"\w+\.\w+@verkada.com")
@@ -102,4 +116,4 @@ def sync_okta_users():
     for user_frozen in new_users:
         user = dict(user_frozen)
         add_customer(user["name"], user["email"])
-        print("Added user", user)
+        logger.info("Sync added user: %s", user)
