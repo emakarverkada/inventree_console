@@ -4,7 +4,7 @@ import time
 import requests
 from requests.auth import HTTPBasicAuth
 
-from config import BASE_URL, DEBUG
+from config import INVENTREE_URL, DEBUG
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def make_inv_request(method: str, path: str, **kwargs) -> requests.Response:
     Returns:
         requests.Response
     """
-    url = BASE_URL + "/api" + path
+    url = INVENTREE_URL + "/api" + path
     verify = not DEBUG  # turning off ssl verification when running in debug mode
     logger.info("InvenTree API request: %s %s", method, path)
     start = time.perf_counter()

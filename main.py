@@ -22,6 +22,7 @@ logging.basicConfig(
 
 debug = os.getenv("INVENTREE_DEBUG") == "True"
 basic_auth.set_auth(INV_USER, INV_PASS)
+okta_auth.set_auth(OKTA_API_KEY)
 
 sched = BackgroundScheduler(daemon=True)
 sched.add_job(sync_okta_users, "interval", minutes=60)

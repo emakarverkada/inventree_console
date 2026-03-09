@@ -1,7 +1,7 @@
 import os
 
 # InvenTree API
-BASE_URL = os.getenv("INVENTREE_SERVER", "http://inventree-server:8000")
+INVENTREE_URL = os.getenv("INVENTREE_SITE_URL", "http://inventree-server:8000")
 INV_USER = os.getenv("INVENTREE_ADMIN_USER")
 INV_PASS = os.getenv("INVENTREE_ADMIN_PASSWORD")
 
