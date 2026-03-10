@@ -11,6 +11,7 @@ ADD static static
 COPY templates .
 ADD templates templates
 COPY config.py .
+COPY tasks.py .
 
 COPY requirements.txt .
 
